@@ -17,12 +17,13 @@ class RecommendTrackSerializer(serializers.ModelSerializer):
     """
     Рекомендованные треки
     """
+    party = serializers.ReadOnlyField(source='party.name')
     track = serializers.SlugRelatedField(slug_field='name', queryset=Track.objects.all())
     is_like = serializers.SerializerMethodField()
 
     class Meta:
         model = RecommendTrack
-        fields = ['id', 'track', 'is_like', 'total_likes']
+        fields = '__all__'
 
     def get_is_like(self, obj):
         """
@@ -36,12 +37,13 @@ class PlayTrackSerializer(serializers.ModelSerializer):
     """
     Рекомендованные треки
     """
+    party = serializers.ReadOnlyField(source='party.name')
     track = serializers.SlugRelatedField(slug_field='name', queryset=Track.objects.all())
 
     class Meta:
         model = PlaylistTrack
-        # fields = '__all__'
-        exclude = ['party']
+        fields = '__all__'
+        # exclude = ['party']
 
 
 class PartySerializer(serializers.ModelSerializer):
