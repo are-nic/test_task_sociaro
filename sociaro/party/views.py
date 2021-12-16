@@ -1,4 +1,5 @@
-from rest_framework import generics, authentication, status, viewsets
+from django.db.models import Count
+from rest_framework import authentication, status, viewsets
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -28,13 +29,6 @@ class PartyView(viewsets.ModelViewSet):
             permission_classes = [PartyOwner]
         return [permission() for permission in permission_classes]
 
-    '''def get_queryset(self):
-        """
-            Вывести мероприятия, которые еще не закрыты. 
-            Дата и время закрытия которых больше даты и времени в момент запроса
-        """
-        return self.queryset.filter(closed__gt=datetime.now())'''
-
     def perform_create(self, serializer):
         """
         При создании мероприятия текущий юзер становится его создателем
@@ -49,7 +43,9 @@ class RecommendTracksView(viewsets.ModelViewSet, LikedMixin):
     serializer_class = RecommendTrackSerializer
 
     def get_queryset(self):
-        return RecommendTrack.objects.filter(party=self.kwargs['party_pk']).order_by('likes')
+        return RecommendTrack.objects.filter(party=self.kwargs['party_pk'])\
+                                     .annotate(count=Count('likes'))\
+                                     .order_by('-count')
 
     def create(self, request, *args, **kwargs):
         # сравниваем время и дату, указанные в поле closed Мероприятия с текущими временем и датой
