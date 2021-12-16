@@ -6,13 +6,6 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-class Like(models.Model):
-    user = models.ForeignKey(User, related_name='likes', on_delete=models.CASCADE)
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
-    content_object = GenericForeignKey('content_type', 'object_id')
-
-
 class Track(models.Model):
     name = models.CharField(max_length=200, verbose_name='Исполнитель и название трека')
     lastfm_url = models.URLField(verbose_name='Ссылка на LastFM', max_length=300, blank=True)
@@ -63,6 +56,13 @@ class PlaylistTrack(models.Model):
         return '{}, {}'.format(self.party.name, self.track.name)
 
 
+class Like(models.Model):
+    user = models.ForeignKey(User, related_name='likes', on_delete=models.CASCADE)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+
 class RecommendTrack(models.Model):
     """
     предложенные треки
@@ -70,14 +70,13 @@ class RecommendTrack(models.Model):
     party = models.ForeignKey(Party, verbose_name='Мероприятие', on_delete=models.CASCADE,
                               related_name='recommend_tracks')
     track = models.ForeignKey(Track, verbose_name='Предложенный трек', on_delete=models.CASCADE)
-    likes = GenericRelation(Like, verbose_name='Голосов')
+    likes = GenericRelation(Like)
 
     @property
     def total_likes(self):
         return self.likes.count()
 
     class Meta:
-        ordering = ('party',)
         verbose_name = 'Предложенный трек'
         verbose_name_plural = 'Предложенные треки'
         db_table = 'recommend_tracks'
