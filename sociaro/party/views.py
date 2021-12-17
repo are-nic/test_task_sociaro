@@ -1,5 +1,7 @@
 from django.db.models import Count
-from rest_framework import authentication, status, viewsets
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import authentication, status, viewsets, generics
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -7,9 +9,18 @@ from .lastfm import lastfm_get
 from .mixins import LikedMixin
 from .models import Track, Party, RecommendTrack, PlaylistTrack
 from .permissions import PartyOwner
-from .serializers import PartySerializer, RecommendTrackSerializer, PlayTrackSerializer
+from .serializers import PartySerializer, RecommendTrackSerializer, PlayTrackSerializer, TrackSerializer
 from datetime import datetime
 from django.views.decorators.cache import cache_page
+
+
+class TrackView(generics.ListAPIView):
+    """
+    Просмотр добавленных в БД Треков.
+    """
+    queryset = Track.objects.all()
+    serializer_class = TrackSerializer
+    permission_classes = [IsAuthenticated]
 
 
 class PartyView(viewsets.ModelViewSet):
@@ -88,10 +99,19 @@ class PlayTracksView(viewsets.ModelViewSet):
         serializer.save(party=Party.objects.get(id=int(self.kwargs['party_pk'])))
 
 
-@api_view(['GET', 'POST'])
+# задаем возможность указания параметров запроса в swagger ui
+@swagger_auto_schema(method='post', manual_parameters=[
+    openapi.Parameter('artist', openapi.IN_QUERY,
+                      type=openapi.TYPE_STRING),
+    openapi.Parameter('track', openapi.IN_QUERY,
+                      type=openapi.TYPE_STRING),
+    openapi.Parameter('method', openapi.IN_QUERY,
+                      type=openapi.TYPE_STRING),
+])
+@api_view(['POST'])
 @authentication_classes([authentication.TokenAuthentication])
 @permission_classes([IsAuthenticated])
-@cache_page(60 * 15)    # 15 мин тайм-аут кэширования
+@cache_page(60)    # 60 сек тайм-аут кэширования
 def get_and_suggest_track(request):
     """
     Найти трек.
@@ -99,28 +119,29 @@ def get_and_suggest_track(request):
     """
     artist = request.query_params.get('artist', None)
     track = request.query_params.get('track', None)
+    method = request.query_params.get('method', None)
+    print(request.query_params)
 
-    if artist is not None and track is not None:
-        if request.method == 'GET':
-            r = lastfm_get({
-                'method': 'track.search',
-                'track': track,
-                'artist': artist
-            })
-            return Response(r.json(), status=status.HTTP_200_OK)
-
-        elif request.method == 'POST':
-            r = lastfm_get({
-                'method': 'track.getInfo',
-                'track': track,
-                'artist': artist
-            })
-            track_name = r.json()['track']['artist']['name'] + ' - ' + r.json()['track']['name']
-            track = Track.objects.create(
-                name=track_name,
-                lastfm_url=r.json()['track']['url']
-            )
-            track.save()
-            return Response(r.json(), status=status.HTTP_200_OK)
-    return Response({"error": "Артист или Трек не заданы"}, status=status.HTTP_400_BAD_REQUEST)
-
+    if artist and track and method:
+        if request.method == 'POST':
+            if method == 'all':
+                r = lastfm_get({
+                    'method': 'track.search',
+                    'track': track,
+                    'artist': artist
+                })
+                return Response(r.json(), status=status.HTTP_200_OK)
+            if method == 'one':
+                r = lastfm_get({
+                    'method': 'track.getInfo',
+                    'track': track,
+                    'artist': artist
+                })
+                track_name = r.json()['track']['artist']['name'] + ' - ' + r.json()['track']['name']
+                track = Track.objects.create(
+                    name=track_name,
+                    lastfm_url=r.json()['track']['url']
+                )
+                track.save()
+                return Response(r.json(), status=status.HTTP_200_OK)
+    return Response({"error": "Артист, Трек или Метод неверно заданы"}, status=status.HTTP_400_BAD_REQUEST)
