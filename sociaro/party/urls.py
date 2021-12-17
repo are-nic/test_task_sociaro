@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework_nested import routers
 from rest_framework.routers import SimpleRouter
 
-from .views import get_and_suggest_track, PartyView, RecommendTracksView, PlayTracksView
+from .views import get_and_suggest_track, PartyView, RecommendTracksView, PlayTracksView, TrackView
 
 router = SimpleRouter(trailing_slash=False)
 
@@ -12,7 +12,8 @@ party_router.register('recommend', RecommendTracksView, basename='recommend')
 party_router.register('playlist', PlayTracksView, basename='playlist')
 
 urlpatterns = [
-    path('search-track', get_and_suggest_track)
+    path('search-track', get_and_suggest_track),
+    path('tracks', TrackView.as_view())
 ]
 urlpatterns += router.urls
 urlpatterns += party_router.urls
